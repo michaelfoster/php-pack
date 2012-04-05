@@ -127,33 +127,39 @@ class Pack {
 		return preg_replace('/^\.\//', '', $ret);
 	}
 	
+	public static function resolve_path($path) {
+		$dirs = explode('/', $path);
+		$realpath = '';
+	
+		foreach($dirs as $dir) {
+			if($dir == '.')
+				continue;
+			elseif($dir == '..') {
+				$realpath = preg_replace('/^(.*)\/(.*)/', '$1', $realpath);
+				if(empty($realpath))
+					$realpath = '/';
+			} else {
+				$realpath .= ($realpath == '/' ? '' : '/') . $dir;
+			}
+		}
+		
+		$realpath = str_replace('//', '/', $realpath);
+		$realpath = preg_replace('/(.)\/$/', '$1', $realpath);
+		
+		return $realpath;
+	}
+	
 	public static function realpath($path, $return_old_path_if_nonexistent = false) {
 		$old_path = $path;
 		
-		$path = self::$cwd . '/' . $path;
+		if($path == '')
+			return $path;
+		elseif($path[0] != '/')
+			$path = self::resolve_path(self::$cwd . '/' . $path);
+		else
+			$path = self::resolve_path($path);
 		
-		var_dump($path);
-		
-		if($path[0] != '/') {
-			$file = basename($path);
-			$cd = dirname(self::$__file__);
-		
-			$dirs = explode('/', $path);
-			array_pop($dirs);
-		
-			foreach($dirs as $dir) {
-				if($dir == '..') {
-					$cd = preg_replace('/^(.*)\/(.*)/', '$1', $cd);
-					if(empty($cd))
-						$cd = '/';
-				} else {
-					$cd .= ($cd == '/' ? '' : '/') . $dir;
-				}
-			}
-			$path = $cd . '/' . $file;
-		}
-		
-		$realpath = 'pack://' . self::relative(dirname(self::$__file__), $path);
+		$realpath = 'pack://' . self::relative(dirname(__FILE__), $path);
 		
 		if($return_old_path_if_nonexistent && !file_exists($realpath))
 			return $old_path;
@@ -163,9 +169,7 @@ class Pack {
 
 	public static function _include($path, $type) {
 		$path_orig = $path;
-		$path = self::realpath($path);
-		
-		var_dump($path);
+		$path = self::realpath(self::$cwd . '/' . $path);
 		
 		// echo token_name($type) . ' - ' . $path . "\n";
 		if(!file_exists($path)) {
@@ -201,17 +205,11 @@ class Pack {
 		$realpath = self::realpath($path);
 		$realpath = preg_replace('/^pack:\/\//', '', $realpath);
 		
-		$dirs = explode('/', $realpath);
-		$realpath = self::$cwd;
-	
-		foreach($dirs as $dir) {
-			if($dir == '..') {
-				$realpath = preg_replace('/^(.*)\/(.*)/', '$1', $realpath);
-				if(empty($realpath))
-					$realpath = '/';
-			} else {
-				$realpath .= ($realpath == '/' ? '' : '/') . $dir;
-			}
+		if($realpath != '') {
+			if($realpath[0] != '/')
+				$realpath = self::resolve_path(self::$cwd . '/' . $realpath);
+			else
+				$realpath = self::resolve_path($realpath);
 		}
 		
 		if(is_dir($realpath)) {
@@ -228,18 +226,24 @@ class Pack {
 	
 	/* php-pack does not handle directories */
 	public static function is_dir($path) {
+		$path = self::realpath($path);
+		$path .= ($path == 'pack://' ? '' : '/');
+		
 		foreach(array_keys(PackStream::$data) as $file) {
 			$file = preg_replace('/^pack:\/\//', '', $file);
 			$file = self::realpath($file);
-			$file = preg_replace('/^pack:\/\//', '', $file);
 			
-			if(strpos(dirname(__FILE__) . '/' . $file, $path) === 0) {
-				if(dirname(__FILE__) . '/' . $file == $path)
+			if(strpos($file, $path) === 0) {
+				if($file == $path)
 					return false; // standard file
 				
 				return true;
 			}
 		}
+		
+		$path = preg_replace('/^pack:\/\//', '', $path);
+		if(file_exists($path))
+			return true;
 		
 		return false;
 	}
