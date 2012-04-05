@@ -118,6 +118,8 @@ class Packer {
 							break;
 						case 'is_file':
 						case 'is_dir':
+						case 'chdir':
+						case 'getcwd':
 							$new_tokens[] = 'Pack::' . $content;
 							break;
 						default:
