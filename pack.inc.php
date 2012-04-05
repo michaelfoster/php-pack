@@ -251,10 +251,33 @@ class Pack {
 	public static function is_file($path) {
 		return file_exists(self::realpath($path));
 	}
+	
+	public static function __file($file = false) {
+		if(!$file)
+			return self::$__file__;
+		return self::$__file__ = $file;
+	}
+	
+	public static function __file_temp($var) {
+		global $$var;
+		
+		$$var = self::$__file__;
+		
+		return true;
+	}
+	
+	public static function __file_temp_restore($var) {
+		global $$var;
+		
+		self::$__file__ = $$var;
+		unset($$var);
+		
+		return true;
+	}
 }
 
 @stream_wrapper_unregister('pack');
 stream_wrapper_register('pack', 'PackStream');
-Pack::$__file__ = __FILE__;
+Pack::__file(__FILE__);
 Pack::$cwd = dirname(__FILE__);
 

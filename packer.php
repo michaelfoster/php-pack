@@ -30,26 +30,44 @@ class Packer {
 				$line = $token[2];
 				
 				if(in_array($type, Array(T_REQUIRE, T_REQUIRE_ONCE, T_INCLUDE, T_INCLUDE_ONCE))) {
+					$bracketed = false;
 					for($x = $i + 1; $x < $token_count; $x++) {
-						if($tokens[$x] == ';')
+						if((is_array($tokens[$x]) && $tokens[$x][0] != T_WHITESPACE) || $tokens[$x] == '(')
 							break;
 					}
+					
+					$bracketed = $tokens[$x] === '(';
+					
+					$depth = $bracketed ? 1 : 0;
+					for($x = $x; $x < $token_count; $x++) {
+						if(is_array($tokens[$x]))
+							continue;
+						
+						if($tokens[$x] == '(')
+							$depth++;
+						elseif($tokens[$x] == ')')
+							$depth--;
+						
+						if(($tokens[$x] == ')' && $depth <= 0) || $tokens[$x] == ';')
+							break;
+					}
+					
 					
 					$new_tokens[] = Array(T_DOC_COMMENT, '/* ');
 					for($t = $i; $t <= $x; $t++)
 						$new_tokens[] = is_array($tokens[$t]) ? $tokens[$t][1] : $tokens[$t];
 					$new_tokens[] = Array(T_DOC_COMMENT, ' */');
 					
-					$temp_var = '$_' . md5(rand());
+					$temp_var = md5(rand());
 					
-					$new_tokens[] = "\n{\n";
-					$new_tokens[] = "$temp_var = Pack::\$__file__;\n";
-					$new_tokens[] = "eval(Pack::_include(";
+					$new_tokens[] = "\n(\n";
+					$new_tokens[] = "Pack::__file_temp('$temp_var') && \n";
+					$new_tokens[] = "(eval(Pack::_include(";
 					for($t = $i + 1; $t < $x ; $t++)
 						$new_tokens[] = is_array($tokens[$t]) ? $tokens[$t][1] : $tokens[$t];
-					$new_tokens[] = ", " . token_name($type) . "));\n";
-					$new_tokens[] = "Pack::\$__file__ = $temp_var;\n";
-					$new_tokens[] = "\n}\n";
+					$new_tokens[] = ", " . token_name($type) . ")) || true)\n";
+					$new_tokens[] = "&& Pack::__file_temp_restore('$temp_var')";
+					$new_tokens[] = "\n)" . $tokens[$x] . "\n";
 					
 					$i = $x;
 				} elseif($type == T_FILE) {
