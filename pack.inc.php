@@ -91,7 +91,7 @@ class PackStream {
 		return array(
 			'dev' => 0,
 			'ino' => 0,
-			'mode' => 0,
+			'mode' => 0644,
 			'nlink' => 0,
 			'uid' => 0,
 			'gid' => 0,
@@ -148,7 +148,6 @@ class Pack {
 			$path = $cd . '/' . $file;
 		}
 		
-		
 		$realpath = 'pack://' . self::relative(dirname(self::$__file__), $path);
 		
 		if($return_old_path_if_nonexistent && !file_exists($realpath))
@@ -161,9 +160,15 @@ class Pack {
 		$path = self::realpath($path);
 		
 		// echo token_name($type) . ' - ' . $path . "\n";
+		if(!file_exists($path)) {
+			$path = preg_replace('/^pack:\/\//', '', $path);
+			$path = 'pack://' . dirname(self::$__file__) . '/' . $path;
+		}
 		
 		if(!file_exists($path)) {
-			trigger_error('Failed to include ' . $path, $type == T_REQUIRE || $type == T_REQUIRE_ONCE ? E_USER_ERROR : E_USER_WARNING);
+			$path = preg_replace('/^pack:\/\//', '', $path);
+			if(!file_exists($path))
+				trigger_error('Failed to include ' . $path, $type == T_REQUIRE || $type == T_REQUIRE_ONCE ? E_USER_ERROR : E_USER_WARNING);
 		}
 		
 		if($type == T_REQUIRE_ONCE || $type == T_INCLUDE_ONCE) {
@@ -178,6 +183,15 @@ class Pack {
 		self::$__file__ = preg_replace('/^pack:\/\//', '', $path);
 		
 		return $inc;
+	}
+	
+	/* php-pack does not handle directories */
+	public static function is_dir($path) {
+		return true;
+	}
+	
+	public static function is_file($path) {
+		return file_exists(self::realpath($path));
 	}
 }
 

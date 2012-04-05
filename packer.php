@@ -42,16 +42,19 @@ class Packer {
 					
 					$temp_var = '$_' . md5(rand());
 					
-					$new_tokens[] = "\n$temp_var = Pack::\$__file__;\n";
+					$new_tokens[] = "\n{\n";
+					$new_tokens[] = "$temp_var = Pack::\$__file__;\n";
 					$new_tokens[] = "eval(Pack::_include(";
 					for($t = $i + 1; $t < $x ; $t++)
 						$new_tokens[] = is_array($tokens[$t]) ? $tokens[$t][1] : $tokens[$t];
 					$new_tokens[] = ", " . token_name($type) . "));\n";
 					$new_tokens[] = "Pack::\$__file__ = $temp_var;\n";
+					$new_tokens[] = "\n}\n";
 					
 					$i = $x;
 				} elseif($type == T_FILE) {
-					$new_tokens[] = 'Pack::$__file__';
+					// $new_tokens[] = 'Pack::$__file__';
+					$new_tokens[] = '\'' . addslashes($path) . '\'';
 				} elseif($type == T_STRING) {
 					switch($content) {
 						case 'readfile':
@@ -71,7 +74,6 @@ class Packer {
 						case 'file_exists':
 						case 'unlink':
 						case 'fopen':
-						case 'is_file':
 						case 'is_readable':
 						case 'is_writable':
 						case 'rename':
@@ -84,21 +86,42 @@ class Packer {
 							
 							$new_tokens[] = 'Pack::realpath(';
 							
+							$depth = 0;
 							for($x = $x + 1; $x < $token_count; $x++) {
+								if(is_array($tokens[$x])) {
+									$new_tokens[] = $tokens[$x][1];
+									continue;
+								}
 								
-								if($tokens[$x] == ',' || $tokens[$x] == ')')
-									break;
+								if(in_array($tokens[$x], array('(', '{'))) {
+									$depth++;
+								} elseif(in_array($tokens[$x], array(')', '}'))) {
+									$depth--;
+								}
+								
+								if(in_array($tokens[$x], array(')', ','))) {
+									if($depth < 0 || ($depth == 0 && $tokens[$x] == ',')) {
+										break;
+									}
+								}
+								
 								$new_tokens[] = $tokens[$x];
 							}
 							
+							
 							$new_tokens[] = ', true)';
+							
 							$new_tokens[] = $tokens[$x];
 							
 							$i = $x;
 							
 							break;
+						case 'is_file':
+						case 'is_dir':
+							$new_tokens[] = 'Pack::' . $content;
+							break;
 						default:
-							$new_tokens[] = $token;
+							$new_tokens[] = $content;
 					}
 				} else {
 					$new_tokens[] = $token;
