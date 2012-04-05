@@ -1,0 +1,144 @@
+<?php
+
+class Packer {
+	private	$sources,
+		$tokens,
+		$path;
+	
+	private static $include_cache = Array();
+	
+	public function add($path) {
+		if(($source = @file_get_contents($this->path = $path)) === false)
+			throw new Exception('Failed to load ' . $path);
+		
+		$this->sources[$path] = $source;
+		
+		$this->tokens[$path] = @token_get_all($this->sources[$path]);
+		$this->tokens[$path] = $this->pack($path);
+	}
+	
+	public function pack($path) {
+		$new_tokens = Array();
+		$tokens = &$this->tokens[$path];
+		$token_count = count($tokens);
+		for($i = 0; $i < $token_count; $i++) {
+			$token = $tokens[$i];
+			
+			if(is_array($token)) {
+				$type = $token[0];
+				$content = $token[1];
+				$line = $token[2];
+				
+				if(in_array($type, Array(T_REQUIRE, T_REQUIRE_ONCE, T_INCLUDE, T_INCLUDE_ONCE))) {
+					for($x = $i + 1; $x < $token_count; $x++) {
+						if($tokens[$x] == ';')
+							break;
+					}
+					
+					$new_tokens[] = Array(T_DOC_COMMENT, '/* ');
+					for($t = $i; $t <= $x; $t++)
+						$new_tokens[] = is_array($tokens[$t]) ? $tokens[$t][1] : $tokens[$t];
+					$new_tokens[] = Array(T_DOC_COMMENT, ' */');
+					
+					$temp_var = '$_' . md5(rand());
+					
+					$new_tokens[] = "\n$temp_var = Pack::\$__file__;\n";
+					$new_tokens[] = "eval(Pack::_include(";
+					for($t = $i + 1; $t < $x ; $t++)
+						$new_tokens[] = is_array($tokens[$t]) ? $tokens[$t][1] : $tokens[$t];
+					$new_tokens[] = ", " . token_name($type) . "));\n";
+					$new_tokens[] = "Pack::\$__file__ = $temp_var;\n";
+					
+					$i = $x;
+				} elseif($type == T_FILE) {
+					$new_tokens[] = 'Pack::$__file__';
+				} elseif($type == T_STRING) {
+					switch($content) {
+						case 'readfile':
+						case 'file_get_contents':
+						case 'file_put_contents':
+						case 'file':
+						case 'stat':
+						case 'fileatime':
+						case 'filectime':
+						case 'filegroup':
+						case 'fileinode':
+						case 'filemtime':
+						case 'fileowner':
+						case 'fileperms':
+						case 'filesize':
+						case 'filetype':						
+						case 'file_exists':
+						case 'unlink':
+						case 'fopen':
+						case 'is_file':
+						case 'is_readable':
+						case 'is_writable':
+						case 'rename':
+							$new_tokens[] = $token;
+							for($x = $i + 1; $x < $token_count; $x++) {
+								$new_tokens[] = $tokens[$x];
+								if($tokens[$x] == '(')
+									break;
+							}
+							
+							$new_tokens[] = 'Pack::realpath(';
+							
+							for($x = $x + 1; $x < $token_count; $x++) {
+								
+								if($tokens[$x] == ',' || $tokens[$x] == ')')
+									break;
+								$new_tokens[] = $tokens[$x];
+							}
+							
+							$new_tokens[] = ', true)';
+							$new_tokens[] = $tokens[$x];
+							
+							$i = $x;
+							
+							break;
+						default:
+							$new_tokens[] = $token;
+					}
+				} else {
+					$new_tokens[] = $token;
+				}
+			} else {
+				$new_tokens[] = $token;
+			}
+		}
+		
+		return $new_tokens;
+	}
+	
+	public function header_code() {
+		$inc = file_get_contents(dirname(__FILE__) . '/pack.inc.php');
+		$inc = substr($inc, strpos($inc, '<?php') + 5);
+		
+		foreach(array_keys($this->sources) as $path) {
+			$inc .= "file_put_contents('pack://" . addslashes($path) . "', base64_decode('" . base64_encode($this->code($path, true)) . "'));\n";
+		}
+		
+		return $inc;
+	}
+	
+	public function code($path, $no_header = false) {		
+		$opened = $no_header;
+		$php = '';
+		foreach($this->tokens[$path] as $token) {
+			if(is_array($token)) {
+				$php .= $token[1];
+				
+				if(!$opened && $token[0] == T_OPEN_TAG) {
+					$php .= $this->header_code();
+					$opened = true;
+				}
+			} else {
+				$php .= $token;
+			}
+		}
+		
+		return $php;
+	}	
+}
+
