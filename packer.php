@@ -54,7 +54,7 @@ class Packer {
 					$i = $x;
 				} elseif($type == T_FILE) {
 					// $new_tokens[] = 'Pack::$__file__';
-					$new_tokens[] = '\'' . addslashes($path) . '\'';
+					$new_tokens[] = 'dirname(__FILE__) . "/' . addslashes($path) . '"';
 				} elseif($type == T_STRING) {
 					switch($content) {
 						case 'readfile':
