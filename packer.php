@@ -76,6 +76,7 @@ class Packer {
 						case 'fopen':
 						case 'is_readable':
 						case 'is_writable':
+						case 'simplexml_load_file':
 						case 'rename':
 							$new_tokens[] = $token;
 							for($x = $i + 1; $x < $token_count; $x++) {
