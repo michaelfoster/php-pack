@@ -74,75 +74,85 @@ class Packer {
 					// $new_tokens[] = 'Pack::$__file__';
 					$new_tokens[] = 'dirname(__FILE__) . "/' . addslashes($path) . '"';
 				} elseif($type == T_STRING) {
-					switch($content) {
-						case 'readfile':
-						case 'file_get_contents':
-						case 'file_put_contents':
-						case 'file':
-						case 'stat':
-						case 'fileatime':
-						case 'filectime':
-						case 'filegroup':
-						case 'fileinode':
-						case 'filemtime':
-						case 'fileowner':
-						case 'fileperms':
-						case 'filesize':
-						case 'filetype':						
-						case 'file_exists':
-						case 'unlink':
-						case 'fopen':
-						case 'is_readable':
-						case 'is_writable':
-						case 'simplexml_load_file':
-						case 'rename':
-							$new_tokens[] = $token;
-							for($x = $i + 1; $x < $token_count; $x++) {
-								$new_tokens[] = $tokens[$x];
-								if($tokens[$x] == '(')
-									break;
-							}
-							
-							$new_tokens[] = 'Pack::realpath(';
-							
-							$depth = 0;
-							for($x = $x + 1; $x < $token_count; $x++) {
-								if(is_array($tokens[$x])) {
-									$new_tokens[] = $tokens[$x][1];
-									continue;
-								}
-								
-								if(in_array($tokens[$x], array('(', '{'))) {
-									$depth++;
-								} elseif(in_array($tokens[$x], array(')', '}'))) {
-									$depth--;
-								}
-								
-								if(in_array($tokens[$x], array(')', ','))) {
-									if($depth < 0 || ($depth == 0 && $tokens[$x] == ',')) {
+					for($x = $i - 1; $x > 0; $x--) {
+						if(!is_array($tokens[$x]) || $tokens[$x][0] != T_WHITESPACE)
+							break;
+					}
+					
+					$prev = $tokens[$x];
+					if(is_array($prev) && ($prev[0] == T_DOUBLE_COLON || $prev[0] == T_OBJECT_OPERATOR)) {
+						$new_tokens[] = $content;
+					} else {
+						switch($content) {
+							case 'readfile':
+							case 'file_get_contents':
+							case 'file_put_contents':
+							case 'file':
+							case 'stat':
+							case 'fileatime':
+							case 'filectime':
+							case 'filegroup':
+							case 'fileinode':
+							case 'filemtime':
+							case 'fileowner':
+							case 'fileperms':
+							case 'filesize':
+							case 'filetype':						
+							case 'file_exists':
+							case 'unlink':
+							case 'fopen':
+							case 'is_readable':
+							case 'is_writable':
+							case 'simplexml_load_file':
+							case 'rename':
+								$new_tokens[] = $token;
+								for($x = $i + 1; $x < $token_count; $x++) {
+									$new_tokens[] = $tokens[$x];
+									if($tokens[$x] == '(')
 										break;
-									}
 								}
-								
+				
+								$new_tokens[] = 'Pack::realpath(';
+				
+								$depth = 0;
+								for($x = $x + 1; $x < $token_count; $x++) {
+									if(is_array($tokens[$x])) {
+										$new_tokens[] = $tokens[$x][1];
+										continue;
+									}
+					
+									if(in_array($tokens[$x], array('(', '{'))) {
+										$depth++;
+									} elseif(in_array($tokens[$x], array(')', '}'))) {
+										$depth--;
+									}
+					
+									if(in_array($tokens[$x], array(')', ','))) {
+										if($depth < 0 || ($depth == 0 && $tokens[$x] == ',')) {
+											break;
+										}
+									}
+					
+									$new_tokens[] = $tokens[$x];
+								}
+				
+				
+								$new_tokens[] = ', true)';
+				
 								$new_tokens[] = $tokens[$x];
-							}
-							
-							
-							$new_tokens[] = ', true)';
-							
-							$new_tokens[] = $tokens[$x];
-							
-							$i = $x;
-							
-							break;
-						case 'is_file':
-						case 'is_dir':
-						case 'chdir':
-						case 'getcwd':
-							$new_tokens[] = 'Pack::' . $content;
-							break;
-						default:
-							$new_tokens[] = $content;
+				
+								$i = $x;
+				
+								break;
+							case 'is_file':
+							case 'is_dir':
+							case 'chdir':
+							case 'getcwd':
+								$new_tokens[] = 'Pack::' . $content;
+								break;
+							default:
+								$new_tokens[] = $content;
+						}
 					}
 				} else {
 					$new_tokens[] = $token;
