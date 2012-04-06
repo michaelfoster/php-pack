@@ -1,11 +1,13 @@
 <?php
 
-$image = dirname(__FILE__) . '/example.png';
+$test = __FILE__;
+
+$image = 'example.png';
 
 function display_image() {
-	global $image;
+	global $image, $test;
 	
 	header('Content-Type: image/png');
-	echo file_get_contents($image);
+	echo file_get_contents(dirname($test) . '/' . $image);
 }
 
