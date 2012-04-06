@@ -174,7 +174,7 @@ class Pack {
 		// echo token_name($type) . ' - ' . $path . "\n";
 		if(!file_exists($path)) {
 			$path = preg_replace('/^pack:\/\//', '', $path);
-			$path = 'pack://' . dirname(self::$__file__) . '/' . $path;
+			$path = 'pack://' . self::realpath(dirname(self::$__file__) . '/' . $path);
 		}
 		
 		if(!file_exists($path)) {
