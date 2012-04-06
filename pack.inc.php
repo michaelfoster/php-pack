@@ -85,24 +85,43 @@ class PackStream {
 	}
 	
 	function url_stat($path) {
-		if(!isset(self::$data[$path]))
-			return false;
+		$path = Pack::realpath(preg_replace('/^pack:\/\//', '', $path));
 		
-		return array(
-			'dev' => 0,
-			'ino' => 0,
-			'mode' => 0644,
-			'nlink' => 0,
-			'uid' => 0,
-			'gid' => 0,
-			'rdev' => 0,
-			'size' => strlen(self::$data[$path]),
-			'atime' => 0,
-			'mtime' => 0,
-			'ctime' => 0,
-			'blksize' => 0,
-			'blocks' => 0
-		);
+		if(isset(self::$data[$path])) {
+			return array(
+				'dev' => 0,
+				'ino' => 0,
+				'mode' => 666,
+				'nlink' => 0,
+				'uid' => 0,
+				'gid' => 0,
+				'rdev' => 0,
+				'size' => strlen(self::$data[$path]),
+				'atime' => 0,
+				'mtime' => 0,
+				'ctime' => 0,
+				'blksize' => 0,
+				'blocks' => 0
+			);
+		} elseif(Pack::is_dir(preg_replace('/^pack:\/\//', '', $path))) {
+			return array(
+				'dev' => 0,
+				'ino' => 0,
+				'mode' => 1666,
+				'nlink' => 0,
+				'uid' => 0,
+				'gid' => 0,
+				'rdev' => 0,
+				'size' => 0,
+				'atime' => 0,
+				'mtime' => 0,
+				'ctime' => 0,
+				'blksize' => 0,
+				'blocks' => 0
+			);
+		} else {
+			return false;
+		}
 	}
 	
 	function stream_tell() {
@@ -169,18 +188,23 @@ class Pack {
 
 	public static function _include($path, $type) {
 		$path_orig = $path;
-		$path = self::realpath(self::$cwd . '/' . $path);
 		
-		// echo token_name($type) . ' - ' . $path . "\n";
+		if($path[0] != '/')
+			$path = self::$cwd . '/' . $path;
+		
+		$path = self::realpath($path);
+		
 		if(!file_exists($path)) {
 			$path = preg_replace('/^pack:\/\//', '', $path);
-			$path = 'pack://' . self::realpath(dirname(self::$__file__) . '/' . $path);
+			$path = self::realpath(dirname(self::$__file__) . '/' . $path);
 		}
 		
 		if(!file_exists($path)) {
 			$path = $path_orig;
-			if(!file_exists($path))
+			if(!file_exists($path)) {
 				trigger_error('Failed to include ' . $path, $type == T_REQUIRE || $type == T_REQUIRE_ONCE ? E_USER_ERROR : E_USER_WARNING);
+				return;
+			}
 		}
 		
 		if($type == T_REQUIRE_ONCE || $type == T_INCLUDE_ONCE) {
